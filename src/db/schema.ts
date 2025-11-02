@@ -5,6 +5,7 @@ import {
   timestamp,
   varchar,
   text,
+  bigint,
 } from "drizzle-orm/pg-core"
 import { createSchemaFactory } from "drizzle-zod"
 import { z } from "zod"
@@ -16,7 +17,7 @@ const { createInsertSchema, createSelectSchema, createUpdateSchema } =
 
 export const repositoriesTable = pgTable(`repositories`, {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  github_id: integer(`github_id`).notNull().unique(),
+  github_id: bigint(`github_id`, { mode: 'number' }).notNull().unique(),
   full_name: varchar({ length: 255 }).notNull(),
   owner: varchar({ length: 255 }).notNull(),
   name: varchar({ length: 255 }).notNull(),
@@ -32,7 +33,7 @@ export const repositoriesTable = pgTable(`repositories`, {
 
 export const pullRequestsTable = pgTable(`pull_requests`, {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  github_id: integer(`github_id`).notNull().unique(),
+  github_id: bigint(`github_id`, { mode: 'number' }).notNull().unique(),
   number: integer().notNull(),
   title: varchar({ length: 500 }).notNull(),
   body: text(),
@@ -71,7 +72,7 @@ export const prFilesTable = pgTable(`pr_files`, {
 
 export const commentsTable = pgTable(`comments`, {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  github_id: integer(`github_id`).unique(),
+  github_id: bigint(`github_id`, { mode: 'number' }).unique(),
   body: text().notNull(),
   line: integer(),
   side: varchar({ length: 10 }),
@@ -92,7 +93,7 @@ export const commentsTable = pgTable(`comments`, {
 
 export const reviewsTable = pgTable(`reviews`, {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  github_id: integer(`github_id`).unique(),
+  github_id: bigint(`github_id`, { mode: 'number' }).unique(),
   state: varchar({ length: 50 }).notNull(),
   body: text(),
   author: varchar({ length: 255 }).notNull(),

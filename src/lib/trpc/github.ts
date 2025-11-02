@@ -88,50 +88,78 @@ export const githubRouter = router({
       }
 
       const octokit = createGitHubClient(account.accessToken)
-      const prs = await fetchRepositoryPullRequests(
-        octokit,
-        repository.owner,
-        repository.name,
-        input.state
-      )
+      
+      let prs
+      try {
+        prs = await fetchRepositoryPullRequests(
+          octokit,
+          repository.owner,
+          repository.name,
+          input.state
+        )
+      } catch (err: any) {
+        console.error(`GitHub API error:`, err)
+        throw new Error(`Failed to fetch PRs from GitHub: ${err.message || err.toString()}`)
+      }
 
       for (const pr of prs) {
-        const insertedPr = await ctx.db
-          .insert(pullRequestsTable)
-          .values({
-            github_id: pr.id,
-            number: pr.number,
-            title: pr.title,
-            body: pr.body || null,
-            state: pr.state,
-            author: pr.user?.login || `unknown`,
-            author_avatar: pr.user?.avatar_url || null,
-            base_branch: pr.base.ref,
-            head_branch: pr.head.ref,
-            mergeable: pr.mergeable,
-            merged: pr.merged || false,
-            draft: pr.draft || false,
-            created_at: new Date(pr.created_at),
-            updated_at: new Date(pr.updated_at),
-            closed_at: pr.closed_at ? new Date(pr.closed_at) : null,
-            merged_at: pr.merged_at ? new Date(pr.merged_at) : null,
-            repository_id: repository.id,
-          })
-          .onConflictDoUpdate({
-            target: pullRequestsTable.github_id,
-            set: {
+        let insertedPr
+        try {
+          insertedPr = await ctx.db
+            .insert(pullRequestsTable)
+            .values({
+              github_id: pr.id,
+              number: pr.number,
               title: pr.title,
               body: pr.body || null,
               state: pr.state,
+              author: pr.user?.login || `unknown`,
+              author_avatar: pr.user?.avatar_url || null,
+              base_branch: pr.base.ref,
+              head_branch: pr.head.ref,
+              mergeable: pr.mergeable ?? null,
+              merged: pr.merged || false,
+              draft: pr.draft || false,
+              created_at: new Date(pr.created_at),
               updated_at: new Date(pr.updated_at),
               closed_at: pr.closed_at ? new Date(pr.closed_at) : null,
               merged_at: pr.merged_at ? new Date(pr.merged_at) : null,
-              merged: pr.merged || false,
-            },
-          })
-          .returning()
+              repository_id: repository.id,
+            })
+            .onConflictDoUpdate({
+              target: pullRequestsTable.github_id,
+              set: {
+                title: pr.title,
+                body: pr.body || null,
+                state: pr.state,
+                mergeable: pr.mergeable ?? null,
+                merged: pr.merged || false,
+                draft: pr.draft || false,
+                updated_at: new Date(pr.updated_at),
+                closed_at: pr.closed_at ? new Date(pr.closed_at) : null,
+                merged_at: pr.merged_at ? new Date(pr.merged_at) : null,
+              },
+            })
+            .returning()
+        } catch (err: any) {
+          console.error(`Failed to insert PR #${pr.number}:`, err)
+          console.error(`PR data:`, JSON.stringify({
+            github_id: pr.id,
+            number: pr.number,
+            title: pr.title,
+            state: pr.state,
+            mergeable: pr.mergeable,
+            merged: pr.merged,
+            draft: pr.draft,
+          }, null, 2))
+          throw new Error(`Failed to insert PR #${pr.number}: ${err.message}`)
+        }
 
-        const prId = insertedPr[0].id
+        const prId = insertedPr[0]?.id
+        if (!prId) {
+          console.error(`Failed to get PR ID for PR #${pr.number}`)
+          continue
+        }
 
         const files = await fetchPullRequestFiles(
           octokit,
