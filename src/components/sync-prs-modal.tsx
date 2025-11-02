@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { trpc } from "@/lib/trpc-client"
+import { syncRepositoryPullRequests } from "@/lib/collections"
 import type { Repository } from "@/db/schema"
 
 type SyncPRsModalProps = {
@@ -22,7 +22,7 @@ export function SyncPRsModal({ isOpen, onClose, onSuccess, repositories }: SyncP
     setError(null)
 
     try {
-      const result = await trpc.github.syncPullRequests.mutate({
+      const result = await syncRepositoryPullRequests({
         repositoryId: selectedRepoId,
         state,
       })

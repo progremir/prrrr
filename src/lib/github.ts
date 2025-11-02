@@ -87,3 +87,25 @@ export async function fetchPullRequestReviews(
   })
   return data
 }
+
+export async function createReviewComment(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  pull_number: number,
+  body: string,
+  commit_id: string,
+  path: string,
+  position: number
+) {
+  const { data } = await octokit.pulls.createReviewComment({
+    owner,
+    repo,
+    pull_number,
+    body,
+    commit_id,
+    path,
+    position,
+  })
+  return data
+}

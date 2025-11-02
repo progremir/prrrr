@@ -1,4 +1,6 @@
 import * as React from "react"
+import { useEffect } from "react"
+import { startBackgroundSync } from "@/lib/background-sync"
 import {
   Outlet,
   HeadContent,
@@ -31,13 +33,22 @@ export const Route = createRootRoute({
     ],
   }),
   shellComponent: RootDocument,
-  component: () => (
+  component: RootComponent,
+})
+
+function RootComponent() {
+  useEffect(() => {
+    const cleanup = startBackgroundSync()
+    return cleanup
+  }, [])
+
+  return (
     <>
       <Outlet />
       <TanStackRouterDevtools />
     </>
-  ),
-})
+  )
+}
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (

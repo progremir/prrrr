@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { trpc } from "@/lib/trpc-client"
+import { syncRepositoriesFromGitHub } from "@/lib/collections"
 
 type SyncReposModalProps = {
   isOpen: boolean
@@ -16,7 +16,7 @@ export function SyncReposModal({ isOpen, onClose, onSuccess }: SyncReposModalPro
     setError(null)
 
     try {
-      const result = await trpc.github.syncRepositories.mutate()
+      const result = await syncRepositoriesFromGitHub()
       onSuccess()
       alert(`Synced ${result.count} repositories!`)
       onClose()

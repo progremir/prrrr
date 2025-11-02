@@ -8,8 +8,9 @@ import {
   repositoriesCollection,
   commentsCollection,
   reviewsCollection,
+  togglePrFileViewed,
+  syncReviewToGitHub,
 } from "@/lib/collections"
-import { trpc } from "@/lib/trpc-client"
 import { authClient } from "@/lib/auth-client"
 
 export const Route = createFileRoute(`/_authenticated/pr/$prId`)({
@@ -131,7 +132,12 @@ function PullRequestDetail() {
 
       {prReviews.length > 0 && (
         <div className="mb-6 bg-white border border-gray-200 rounded-lg p-4">
-          <h3 className="text-sm font-semibold mb-3">Reviews ({prReviews.length})</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold">Reviews ({prReviews.length})</h3>
+            {prReviews.some((r) => !r.synced_to_github) && (
+              <SyncReviewsButton reviews={prReviews.filter((r) => !r.synced_to_github)} />
+            )}
+          </div>
           <div className="space-y-3">
             {prReviews.map((review) => (
               <div key={review.id} className="flex items-start gap-3 text-sm">
@@ -217,8 +223,6 @@ type FileCardProps = {
 }
 
 function FileCard({ file, viewMode, isExpanded, onToggle, prId, comments }: FileCardProps) {
-  const [isViewed, setIsViewed] = useState(file.viewed)
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case `added`:
@@ -234,22 +238,19 @@ function FileCard({ file, viewMode, isExpanded, onToggle, prId, comments }: File
 
   const handleToggleViewed = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    const newViewed = !isViewed
-    setIsViewed(newViewed)
-    
+    const newViewed = !file.viewed
+
     try {
-      await trpc.files.toggleViewed.mutate({
-        fileId: file.id,
-        viewed: newViewed,
-      })
+      await togglePrFileViewed(file.id, newViewed)
     } catch (err) {
-      setIsViewed(!newViewed)
       alert(`Failed to mark as viewed`)
     }
   }
 
   return (
-    <div className={`border rounded-lg overflow-hidden ${isViewed ? `border-gray-300 opacity-60` : `border-gray-200`}`}>
+    <div className={`border rounded-lg overflow-hidden ${
+      file.viewed ? `border-gray-300 opacity-60` : `border-gray-200`
+    }`}>
       <button
         onClick={onToggle}
         className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between text-left"
@@ -257,7 +258,7 @@ function FileCard({ file, viewMode, isExpanded, onToggle, prId, comments }: File
         <div className="flex items-center gap-3">
           <input
             type="checkbox"
-            checked={isViewed}
+            checked={file.viewed}
             onChange={handleToggleViewed}
             onClick={(e) => e.stopPropagation()}
             className="w-4 h-4 text-indigo-600 rounded"
@@ -318,23 +319,47 @@ type DiffViewerProps = {
 }
 
 function DiffViewer({ patch, viewMode, filename, prId, comments }: DiffViewerProps) {
+  const { data: session } = authClient.useSession()
   const [commentingLine, setCommentingLine] = useState<number | null>(null)
   const [commentText, setCommentText] = useState(``)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const lines = patch.split(`\n`)
 
+  const { data: pullRequests } = useLiveQuery((q) => q.from({ pullRequestsCollection }))
+  const pr = pullRequests.find((p) => p.id === prId)
+
   const handleAddComment = async (lineNumber: number) => {
     if (!commentText.trim()) return
 
+    if (!pr?.head_sha) {
+      alert(`Cannot add comment: PR head SHA not found`)
+      return
+    }
+
+    if (!session) {
+      alert(`Not authenticated`)
+      return
+    }
+
     setIsSubmitting(true)
     try {
-      await trpc.comments.create.mutate({
+      commentsCollection.insert({
+        id: Math.floor(Math.random() * 1000000000),
         pull_request_id: prId,
         body: commentText,
         path: filename,
         line: lineNumber,
         side: `RIGHT`,
+        commit_id: pr.head_sha,
+        author: session.user.name || session.user.email,
+        author_avatar: session.user.image || null,
+        user_id: session.user.id,
+        synced_to_github: false,
+        github_id: null,
+        created_at: new Date(),
+        updated_at: new Date(),
       })
+
       setCommentText(``)
       setCommentingLine(null)
     } catch (err) {
@@ -444,6 +469,51 @@ function DiffViewer({ patch, viewMode, filename, prId, comments }: DiffViewerPro
   )
 }
 
+type SyncReviewsButtonProps = {
+  reviews: Array<{ id: number }>
+}
+
+function SyncReviewsButton({ reviews }: SyncReviewsButtonProps) {
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncedCount, setSyncedCount] = useState(0)
+
+  const handleSync = async () => {
+    setIsSyncing(true)
+    setSyncedCount(0)
+    let successCount = 0
+
+    try {
+      for (const review of reviews) {
+        try {
+          await syncReviewToGitHub(review.id)
+          successCount++
+          setSyncedCount(successCount)
+        } catch (err) {
+          console.error(`Failed to sync review ${review.id}:`, err)
+        }
+      }
+
+      if (successCount === reviews.length) {
+        alert(`Successfully synced ${successCount} review(s) to GitHub!`)
+      } else {
+        alert(`Synced ${successCount} of ${reviews.length} reviews. Check console for errors.`)
+      }
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleSync}
+      disabled={isSyncing}
+      className="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 disabled:opacity-50"
+    >
+      {isSyncing ? `Syncing ${syncedCount}/${reviews.length}...` : `Sync to GitHub (${reviews.length})`}
+    </button>
+  )
+}
+
 type ReviewModalProps = {
   isOpen: boolean
   onClose: () => void
@@ -452,24 +522,38 @@ type ReviewModalProps = {
 }
 
 function ReviewModal({ isOpen, onClose, prId, onSuccess }: ReviewModalProps) {
+  const { data: session } = authClient.useSession()
   const [state, setState] = useState<`APPROVE` | `REQUEST_CHANGES` | `COMMENT`>(`COMMENT`)
   const [body, setBody] = useState(``)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async () => {
+    if (!session) {
+      setError(`Not authenticated`)
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
 
     try {
-      await trpc.reviews.create.mutate({
+      reviewsCollection.insert({
+        id: Math.floor(Math.random() * 1000000000),
         pull_request_id: prId,
         state,
-        body: body || undefined,
+        body: body || null,
+        author: session.user.name || session.user.email,
+        author_avatar: session.user.image || null,
+        user_id: session.user.id,
+        synced_to_github: false,
+        github_id: null,
+        submitted_at: new Date(),
+        created_at: new Date(),
       })
+
       setBody(``)
       onSuccess()
-      alert(`Review submitted! It will sync to GitHub in the background.`)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to submit review`)

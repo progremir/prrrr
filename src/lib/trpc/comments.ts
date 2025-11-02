@@ -3,9 +3,18 @@ import { router, authedProcedure } from "@/lib/trpc"
 import { commentsTable, reviewsTable, pullRequestsTable, repositoriesTable } from "@/db/schema"
 import { accounts } from "@/db/auth-schema"
 import { eq } from "drizzle-orm"
-import { createGitHubClient } from "@/lib/github"
+import { createGitHubClient, createReviewComment } from "@/lib/github"
 
 export const commentsRouter = router({
+  getPending: authedProcedure.query(async ({ ctx }) => {
+    const pending = await ctx.db
+      .select()
+      .from(commentsTable)
+      .where(eq(commentsTable.synced_to_github, false))
+
+    return pending
+  }),
+
   create: authedProcedure
     .input(
       z.object({
@@ -49,9 +58,97 @@ export const commentsRouter = router({
 
       return { txid: txid.rows[0].txid }
     }),
+
+  syncToGitHub: authedProcedure
+    .input(z.object({ commentId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const [account] = await ctx.db
+        .select()
+        .from(accounts)
+        .where(eq(accounts.userId, ctx.session.user.id))
+        .limit(1)
+
+      if (!account?.accessToken) {
+        throw new Error(`No GitHub account connected`)
+      }
+
+      const [comment] = await ctx.db
+        .select()
+        .from(commentsTable)
+        .where(eq(commentsTable.id, input.commentId))
+        .limit(1)
+
+      if (!comment) {
+        throw new Error(`Comment not found`)
+      }
+
+      if (!comment.path || !comment.line) {
+        throw new Error(`Comment missing required fields (path or line)`)
+      }
+
+      const [pr] = await ctx.db
+        .select()
+        .from(pullRequestsTable)
+        .where(eq(pullRequestsTable.id, comment.pull_request_id))
+        .limit(1)
+
+      if (!pr) {
+        throw new Error(`Pull request not found`)
+      }
+
+      if (!pr.head_sha) {
+        throw new Error(`PR missing head SHA`)
+      }
+
+      const [repository] = await ctx.db
+        .select()
+        .from(repositoriesTable)
+        .where(eq(repositoriesTable.id, pr.repository_id))
+        .limit(1)
+
+      if (!repository) {
+        throw new Error(`Repository not found`)
+      }
+
+      const octokit = createGitHubClient(account.accessToken)
+
+      const ghComment = await createReviewComment(
+        octokit,
+        repository.owner,
+        repository.name,
+        pr.number,
+        comment.body,
+        pr.head_sha,
+        comment.path,
+        comment.line
+      )
+
+      await ctx.db
+        .update(commentsTable)
+        .set({
+          synced_to_github: true,
+          github_id: ghComment.id,
+        })
+        .where(eq(commentsTable.id, input.commentId))
+
+      const txid = await ctx.db.execute(
+        `SELECT pg_current_xact_id()::xid::text as txid`
+      )
+
+      return { txid: txid.rows[0].txid }
+    }),
 })
 
 export const reviewsRouter = router({
+  getPending: authedProcedure.query(async ({ ctx }) => {
+    const pending = await ctx.db
+      .select()
+      .from(reviewsTable)
+      .where(eq(reviewsTable.synced_to_github, false))
+
+    return pending
+  }),
+
   create: authedProcedure
     .input(
       z.object({

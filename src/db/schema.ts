@@ -42,6 +42,7 @@ export const pullRequestsTable = pgTable(`pull_requests`, {
   author_avatar: text(`author_avatar`),
   base_branch: varchar({ length: 255 }).notNull(),
   head_branch: varchar({ length: 255 }).notNull(),
+  head_sha: varchar({ length: 255 }),
   mergeable: boolean(),
   merged: boolean().notNull().default(false),
   draft: boolean().notNull().default(false),

@@ -56,16 +56,19 @@ A fully functional offline-first GitHub PR review app with core features complet
 
 ---
 
-## 🚧 Phase 4: Productivity Features (Next)
+## 🚧 Phase 4: Productivity Features (In Progress)
 
 **Goal**: Exceed GitHub's experience
 
 ### High Priority
 - [ ] **Auto-sync pending reviews to GitHub**
-  - Background worker to post reviews
-  - "Sync to GitHub" manual button
-  - Retry logic for failed syncs
-  - Visual sync status indicators
+  - [ ] Auto-sync on review submission (checkbox option)
+  - [x] "Sync to GitHub" manual button for pending reviews
+  - [x] Batch sync for multiple reviews
+  - [x] Visual sync status indicators
+  - [x] Error handling with user feedback
+  - [ ] Retry logic for failed syncs
+  - [x] Background worker for periodic sync
 
 - [ ] **Keyboard shortcuts**
   - `j/k` - Navigate between files
@@ -180,10 +183,11 @@ A fully functional offline-first GitHub PR review app with core features complet
 ## 🐛 Known Issues
 
 - [x] ~~GitHub ID overflow (>2.1B) - Fixed with bigint~~
+- [x] ~~Review comments don't auto-sync to GitHub - Fixed with background worker~~
+- [x] ~~Not truly offline-first - Fixed with collection operations~~
 - [ ] No reply to comments yet (threads)
 - [ ] Can't resolve/unresolve conversations
 - [ ] No code suggestions feature
-- [ ] Review comments don't auto-sync to GitHub
 
 ---
 
