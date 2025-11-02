@@ -12,14 +12,14 @@ const serve = async ({ request }: { request: Request }) => {
   }
 
   const originUrl = prepareElectricUrl(request.url)
-  originUrl.searchParams.set(`table`, `todos`)
-  const filter = `'${session.user.id}' = ANY(user_ids)`
+  originUrl.searchParams.set(`table`, `repositories`)
+  const filter = `user_id = '${session.user.id}'`
   originUrl.searchParams.set(`where`, filter)
 
   return proxyElectricRequest(originUrl)
 }
 
-export const Route = createFileRoute(`/api/todos`)({
+export const Route = createFileRoute(`/api/repositories`)({
   server: {
     handlers: {
       GET: serve,

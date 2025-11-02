@@ -25,17 +25,21 @@ export const auth = betterAuth({
     provider: `pg`,
     usePlural: true,
     schema,
-    // debugLogs: true,
   }),
   emailAndPassword: {
     enabled: true,
-    // Disable signup in production, allow in dev
     disableSignUp: process.env.NODE_ENV === `production`,
     minPasswordLength: process.env.NODE_ENV === `production` ? 8 : 1,
+  },
+  socialProviders: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
   },
   trustedOrigins: [
     `https://tanstack-start-db-electric-starter.localhost`,
     `https://${networkIP}`,
-    `http://localhost:5173`, // fallback for direct Vite access
+    `http://localhost:5173`,
   ],
 })

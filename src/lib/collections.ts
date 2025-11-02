@@ -1,9 +1,12 @@
 import { createCollection } from "@tanstack/react-db"
 import { electricCollectionOptions } from "@tanstack/electric-db-collection"
 import {
-  selectTodoSchema,
-  selectProjectSchema,
   selectUsersSchema,
+  selectRepositorySchema,
+  selectPullRequestSchema,
+  selectPrFileSchema,
+  selectCommentSchema,
+  selectReviewSchema,
 } from "@/db/schema"
 import { trpc } from "@/lib/trpc-client"
 
@@ -27,12 +30,12 @@ export const usersCollection = createCollection(
     getKey: (item) => item.id,
   })
 )
-export const projectCollection = createCollection(
+export const repositoriesCollection = createCollection(
   electricCollectionOptions({
-    id: `projects`,
+    id: `repositories`,
     shapeOptions: {
       url: new URL(
-        `/api/projects`,
+        `/api/repositories`,
         typeof window !== `undefined`
           ? window.location.origin
           : `http://localhost:5173`
@@ -43,93 +46,86 @@ export const projectCollection = createCollection(
         },
       },
     },
-    schema: selectProjectSchema,
+    schema: selectRepositorySchema,
     getKey: (item) => item.id,
-    onInsert: async ({ transaction }) => {
-      const { modified: newProject } = transaction.mutations[0]
-      const result = await trpc.projects.create.mutate({
-        name: newProject.name,
-        description: newProject.description,
-        owner_id: newProject.owner_id,
-        shared_user_ids: newProject.shared_user_ids,
-      })
-
-      return { txid: result.txid }
-    },
-    onUpdate: async ({ transaction }) => {
-      const { modified: updatedProject } = transaction.mutations[0]
-      const result = await trpc.projects.update.mutate({
-        id: updatedProject.id,
-        data: {
-          name: updatedProject.name,
-          description: updatedProject.description,
-          shared_user_ids: updatedProject.shared_user_ids,
-        },
-      })
-
-      return { txid: result.txid }
-    },
-    onDelete: async ({ transaction }) => {
-      const { original: deletedProject } = transaction.mutations[0]
-      const result = await trpc.projects.delete.mutate({
-        id: deletedProject.id,
-      })
-
-      return { txid: result.txid }
-    },
   })
 )
 
-export const todoCollection = createCollection(
+export const pullRequestsCollection = createCollection(
   electricCollectionOptions({
-    id: `todos`,
+    id: `pull_requests`,
     shapeOptions: {
       url: new URL(
-        `/api/todos`,
+        `/api/pull-requests`,
         typeof window !== `undefined`
           ? window.location.origin
           : `http://localhost:5173`
       ).toString(),
       parser: {
-        // Parse timestamp columns into JavaScript Date objects
         timestamptz: (date: string) => {
           return new Date(date)
         },
       },
     },
-    schema: selectTodoSchema,
+    schema: selectPullRequestSchema,
     getKey: (item) => item.id,
-    onInsert: async ({ transaction }) => {
-      const { modified: newTodo } = transaction.mutations[0]
-      const result = await trpc.todos.create.mutate({
-        user_id: newTodo.user_id,
-        text: newTodo.text,
-        completed: newTodo.completed,
-        project_id: newTodo.project_id,
-        user_ids: newTodo.user_ids,
-      })
+  })
+)
 
-      return { txid: result.txid }
+export const prFilesCollection = createCollection(
+  electricCollectionOptions({
+    id: `pr_files`,
+    shapeOptions: {
+      url: new URL(
+        `/api/pr-files`,
+        typeof window !== `undefined`
+          ? window.location.origin
+          : `http://localhost:5173`
+      ).toString(),
     },
-    onUpdate: async ({ transaction }) => {
-      const { modified: updatedTodo } = transaction.mutations[0]
-      const result = await trpc.todos.update.mutate({
-        id: updatedTodo.id,
-        data: {
-          text: updatedTodo.text,
-          completed: updatedTodo.completed,
+    schema: selectPrFileSchema,
+    getKey: (item) => item.id,
+  })
+)
+
+export const commentsCollection = createCollection(
+  electricCollectionOptions({
+    id: `comments`,
+    shapeOptions: {
+      url: new URL(
+        `/api/comments`,
+        typeof window !== `undefined`
+          ? window.location.origin
+          : `http://localhost:5173`
+      ).toString(),
+      parser: {
+        timestamptz: (date: string) => {
+          return new Date(date)
         },
-      })
-
-      return { txid: result.txid }
+      },
     },
-    onDelete: async ({ transaction }) => {
-      const { original: deletedTodo } = transaction.mutations[0]
-      const result = await trpc.todos.delete.mutate({
-        id: deletedTodo.id,
-      })
+    schema: selectCommentSchema,
+    getKey: (item) => item.id,
+  })
+)
 
-      return { txid: result.txid }
+export const reviewsCollection = createCollection(
+  electricCollectionOptions({
+    id: `reviews`,
+    shapeOptions: {
+      url: new URL(
+        `/api/reviews`,
+        typeof window !== `undefined`
+          ? window.location.origin
+          : `http://localhost:5173`
+      ).toString(),
+      parser: {
+        timestamptz: (date: string) => {
+          return new Date(date)
+        },
+      },
     },
+    schema: selectReviewSchema,
+    getKey: (item) => item.id,
   })
 )

@@ -14,46 +14,139 @@ import { users } from "./auth-schema"
 const { createInsertSchema, createSelectSchema, createUpdateSchema } =
   createSchemaFactory({ zodInstance: z })
 
-export const projectsTable = pgTable(`projects`, {
+export const repositoriesTable = pgTable(`repositories`, {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  github_id: integer(`github_id`).notNull().unique(),
+  full_name: varchar({ length: 255 }).notNull(),
+  owner: varchar({ length: 255 }).notNull(),
   name: varchar({ length: 255 }).notNull(),
   description: text(),
-  shared_user_ids: text(`shared_user_ids`).array().notNull().default([]),
+  default_branch: varchar({ length: 255 }),
+  private: boolean().notNull().default(false),
   created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
-  owner_id: text(`owner_id`)
-    .notNull()
-    .references(() => users.id, { onDelete: `cascade` }),
-})
-
-export const todosTable = pgTable(`todos`, {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  text: varchar({ length: 500 }).notNull(),
-  completed: boolean().notNull().default(false),
-  created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   user_id: text(`user_id`)
     .notNull()
     .references(() => users.id, { onDelete: `cascade` }),
-  project_id: integer(`project_id`)
+})
+
+export const pullRequestsTable = pgTable(`pull_requests`, {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  github_id: integer(`github_id`).notNull().unique(),
+  number: integer().notNull(),
+  title: varchar({ length: 500 }).notNull(),
+  body: text(),
+  state: varchar({ length: 50 }).notNull(),
+  author: varchar({ length: 255 }).notNull(),
+  author_avatar: text(`author_avatar`),
+  base_branch: varchar({ length: 255 }).notNull(),
+  head_branch: varchar({ length: 255 }).notNull(),
+  mergeable: boolean(),
+  merged: boolean().notNull().default(false),
+  draft: boolean().notNull().default(false),
+  created_at: timestamp({ withTimezone: true }).notNull(),
+  updated_at: timestamp({ withTimezone: true }).notNull(),
+  closed_at: timestamp({ withTimezone: true }),
+  merged_at: timestamp({ withTimezone: true }),
+  repository_id: integer(`repository_id`)
     .notNull()
-    .references(() => projectsTable.id, { onDelete: `cascade` }),
-  user_ids: text(`user_ids`).array().notNull().default([]),
+    .references(() => repositoriesTable.id, { onDelete: `cascade` }),
 })
 
-export const selectProjectSchema = createSelectSchema(projectsTable)
-export const createProjectSchema = createInsertSchema(projectsTable).omit({
+export const prFilesTable = pgTable(`pr_files`, {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  filename: varchar({ length: 500 }).notNull(),
+  status: varchar({ length: 50 }).notNull(),
+  additions: integer().notNull().default(0),
+  deletions: integer().notNull().default(0),
+  changes: integer().notNull().default(0),
+  patch: text(),
+  previous_filename: varchar({ length: 500 }),
+  sha: varchar({ length: 255 }),
+  viewed: boolean().notNull().default(false),
+  pull_request_id: integer(`pull_request_id`)
+    .notNull()
+    .references(() => pullRequestsTable.id, { onDelete: `cascade` }),
+})
+
+export const commentsTable = pgTable(`comments`, {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  github_id: integer(`github_id`).unique(),
+  body: text().notNull(),
+  line: integer(),
+  side: varchar({ length: 10 }),
+  path: varchar({ length: 500 }),
+  commit_id: varchar({ length: 255 }),
+  author: varchar({ length: 255 }).notNull(),
+  author_avatar: text(`author_avatar`),
+  synced_to_github: boolean(`synced_to_github`).notNull().default(false),
+  created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  pull_request_id: integer(`pull_request_id`)
+    .notNull()
+    .references(() => pullRequestsTable.id, { onDelete: `cascade` }),
+  user_id: text(`user_id`)
+    .notNull()
+    .references(() => users.id, { onDelete: `cascade` }),
+})
+
+export const reviewsTable = pgTable(`reviews`, {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  github_id: integer(`github_id`).unique(),
+  state: varchar({ length: 50 }).notNull(),
+  body: text(),
+  author: varchar({ length: 255 }).notNull(),
+  author_avatar: text(`author_avatar`),
+  synced_to_github: boolean(`synced_to_github`).notNull().default(false),
+  submitted_at: timestamp({ withTimezone: true }),
+  created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  pull_request_id: integer(`pull_request_id`)
+    .notNull()
+    .references(() => pullRequestsTable.id, { onDelete: `cascade` }),
+  user_id: text(`user_id`)
+    .notNull()
+    .references(() => users.id, { onDelete: `cascade` }),
+})
+
+export const selectRepositorySchema = createSelectSchema(repositoriesTable)
+export const createRepositorySchema = createInsertSchema(repositoriesTable).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+})
+export const updateRepositorySchema = createUpdateSchema(repositoriesTable)
+
+export const selectPullRequestSchema = createSelectSchema(pullRequestsTable)
+export const createPullRequestSchema = createInsertSchema(pullRequestsTable).omit({
+  id: true,
+})
+export const updatePullRequestSchema = createUpdateSchema(pullRequestsTable)
+
+export const selectPrFileSchema = createSelectSchema(prFilesTable)
+export const createPrFileSchema = createInsertSchema(prFilesTable).omit({
+  id: true,
+})
+export const updatePrFileSchema = createUpdateSchema(prFilesTable)
+
+export const selectCommentSchema = createSelectSchema(commentsTable)
+export const createCommentSchema = createInsertSchema(commentsTable).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+})
+export const updateCommentSchema = createUpdateSchema(commentsTable)
+
+export const selectReviewSchema = createSelectSchema(reviewsTable)
+export const createReviewSchema = createInsertSchema(reviewsTable).omit({
+  id: true,
   created_at: true,
 })
-export const updateProjectSchema = createUpdateSchema(projectsTable)
+export const updateReviewSchema = createUpdateSchema(reviewsTable)
 
-export const selectTodoSchema = createSelectSchema(todosTable)
-export const createTodoSchema = createInsertSchema(todosTable).omit({
-  created_at: true,
-})
-export const updateTodoSchema = createUpdateSchema(todosTable)
-
-export type Project = z.infer<typeof selectProjectSchema>
-export type UpdateProject = z.infer<typeof updateProjectSchema>
-export type Todo = z.infer<typeof selectTodoSchema>
-export type UpdateTodo = z.infer<typeof updateTodoSchema>
+export type Repository = z.infer<typeof selectRepositorySchema>
+export type PullRequest = z.infer<typeof selectPullRequestSchema>
+export type PrFile = z.infer<typeof selectPrFileSchema>
+export type Comment = z.infer<typeof selectCommentSchema>
+export type Review = z.infer<typeof selectReviewSchema>
 
 export const selectUsersSchema = createSelectSchema(users)

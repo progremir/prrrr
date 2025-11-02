@@ -1,16 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch"
 import { router } from "@/lib/trpc"
-import { projectsRouter } from "@/lib/trpc/projects"
-import { todosRouter } from "@/lib/trpc/todos"
 import { usersRouter } from "@/lib/trpc/users"
+import { githubRouter } from "@/lib/trpc/github"
+import { commentsRouter, reviewsRouter } from "@/lib/trpc/comments"
+import { filesRouter } from "@/lib/trpc/files"
 import { db } from "@/db/connection"
 import { auth } from "@/lib/auth"
 
 export const appRouter = router({
-  projects: projectsRouter,
-  todos: todosRouter,
   users: usersRouter,
+  github: githubRouter,
+  comments: commentsRouter,
+  reviews: reviewsRouter,
+  files: filesRouter,
 })
 
 export type AppRouter = typeof appRouter

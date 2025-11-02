@@ -12,14 +12,12 @@ const serve = async ({ request }: { request: Request }) => {
   }
 
   const originUrl = prepareElectricUrl(request.url)
-  originUrl.searchParams.set(`table`, `projects`)
-  const filter = `owner_id = '${session.user.id}' OR '${session.user.id}' = ANY(shared_user_ids)`
-  originUrl.searchParams.set(`where`, filter)
+  originUrl.searchParams.set(`table`, `reviews`)
 
   return proxyElectricRequest(originUrl)
 }
 
-export const Route = createFileRoute(`/api/projects`)({
+export const Route = createFileRoute(`/api/reviews`)({
   server: {
     handlers: {
       GET: serve,
