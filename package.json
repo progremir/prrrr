@@ -14,7 +14,8 @@
     "lint:check": "eslint .",
     "lint": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@electric-sql/client": "^1.0.11",

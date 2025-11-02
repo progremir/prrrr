@@ -111,38 +111,23 @@ export const reviewsTable = pgTable(`reviews`, {
 })
 
 export const selectRepositorySchema = createSelectSchema(repositoriesTable)
-export const createRepositorySchema = createInsertSchema(repositoriesTable).omit({
-  id: true,
-  created_at: true,
-  updated_at: true,
-})
+export const createRepositorySchema = createInsertSchema(repositoriesTable)
 export const updateRepositorySchema = createUpdateSchema(repositoriesTable)
 
 export const selectPullRequestSchema = createSelectSchema(pullRequestsTable)
-export const createPullRequestSchema = createInsertSchema(pullRequestsTable).omit({
-  id: true,
-})
+export const createPullRequestSchema = createInsertSchema(pullRequestsTable)
 export const updatePullRequestSchema = createUpdateSchema(pullRequestsTable)
 
 export const selectPrFileSchema = createSelectSchema(prFilesTable)
-export const createPrFileSchema = createInsertSchema(prFilesTable).omit({
-  id: true,
-})
+export const createPrFileSchema = createInsertSchema(prFilesTable)
 export const updatePrFileSchema = createUpdateSchema(prFilesTable)
 
 export const selectCommentSchema = createSelectSchema(commentsTable)
-export const createCommentSchema = createInsertSchema(commentsTable).omit({
-  id: true,
-  created_at: true,
-  updated_at: true,
-})
+export const createCommentSchema = createInsertSchema(commentsTable)
 export const updateCommentSchema = createUpdateSchema(commentsTable)
 
 export const selectReviewSchema = createSelectSchema(reviewsTable)
-export const createReviewSchema = createInsertSchema(reviewsTable).omit({
-  id: true,
-  created_at: true,
-})
+export const createReviewSchema = createInsertSchema(reviewsTable)
 export const updateReviewSchema = createUpdateSchema(reviewsTable)
 
 export type Repository = z.infer<typeof selectRepositorySchema>

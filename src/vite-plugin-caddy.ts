@@ -23,6 +23,9 @@ export function caddyPlugin(options: CaddyPluginOptions = {}): Plugin {
   let vitePort: number | undefined
   let caddyStarted = false
 
+  const getConfiguredPort = (value: number | null | undefined): number | undefined =>
+    typeof value === `number` ? value : undefined
+
   const generateCaddyfile = (projectName: string, vitePort: number) => {
     // Get network IP for network access
     const nets = networkInterfaces()
@@ -177,36 +180,40 @@ ${networkIP} {
       }
 
       server.middlewares.use((_req, _res, next) => {
-        if (!vitePort && server.config.server.port) {
-          vitePort = server.config.server.port
+        const configuredPort = getConfiguredPort(server.config.server.port)
+        if (!vitePort && configuredPort !== undefined) {
+          vitePort = configuredPort
           startCaddyIfReady(projectName)
         }
         next()
       })
 
-      const originalListen = server.listen
-      server.listen = function (port?: number, ...args: unknown[]) {
-        if (port) {
-          vitePort = port
-        }
+      type Listen = typeof server.listen
+      const originalListen: Listen = server.listen.bind(server)
 
-        const result = originalListen.call(this, port, ...args)
-
-        // Try to start Caddy after server is listening
-        if (result && typeof result.then === `function`) {
-          result.then(() => {
-            // Check if we now have a port from the server
-            if (!vitePort && server.config.server.port) {
-              vitePort = server.config.server.port
-            }
-            startCaddyIfReady(projectName)
-          })
+      server.listen = ((...listenArgs: Parameters<Listen>) => {
+        const [maybePort] = listenArgs
+        if (typeof maybePort === `number`) {
+          vitePort = maybePort
         } else {
-          startCaddyIfReady(projectName)
+          const configuredPort = getConfiguredPort(server.config.server.port)
+          if (configuredPort !== undefined) {
+            vitePort = configuredPort
+          }
         }
+
+        const result = originalListen(...listenArgs)
+
+        Promise.resolve(result).then(() => {
+          const configuredPort = getConfiguredPort(server.config.server.port)
+          if (!vitePort && configuredPort !== undefined) {
+            vitePort = configuredPort
+          }
+          startCaddyIfReady(projectName)
+        })
 
         return result
-      }
+      }) as Listen
     },
     buildEnd() {
       stopCaddy()

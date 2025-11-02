@@ -4,6 +4,8 @@ import { commentsTable, reviewsTable, pullRequestsTable, repositoriesTable } fro
 import { accounts } from "@/db/auth-schema"
 import { eq } from "drizzle-orm"
 import { createGitHubClient, createReviewComment } from "@/lib/github"
+import { parseTxid } from "@/lib/txid"
+import { isReviewState } from "@/lib/review-types"
 
 export const commentsRouter = router({
   getPending: authedProcedure.query(async ({ ctx }) => {
@@ -42,7 +44,8 @@ export const commentsRouter = router({
         `SELECT pg_current_xact_id()::xid::text as txid`
       )
 
-      return { comment: result[0], txid: txid.rows[0].txid }
+      const txidValue = parseTxid(txid.rows[0]?.txid)
+      return { comment: result[0], txid: txidValue }
     }),
 
   delete: authedProcedure
@@ -56,7 +59,8 @@ export const commentsRouter = router({
         `SELECT pg_current_xact_id()::xid::text as txid`
       )
 
-      return { txid: txid.rows[0].txid }
+      const txidValue = parseTxid(txid.rows[0]?.txid)
+      return { txid: txidValue }
     }),
 
   syncToGitHub: authedProcedure
@@ -135,7 +139,8 @@ export const commentsRouter = router({
         `SELECT pg_current_xact_id()::xid::text as txid`
       )
 
-      return { txid: txid.rows[0].txid }
+      const txidValue = parseTxid(txid.rows[0]?.txid)
+      return { txid: txidValue }
     }),
 })
 
@@ -176,7 +181,8 @@ export const reviewsRouter = router({
         `SELECT pg_current_xact_id()::xid::text as txid`
       )
 
-      return { review: result[0], txid: txid.rows[0].txid }
+      const txidValue = parseTxid(txid.rows[0]?.txid)
+      return { review: result[0], txid: txidValue }
     }),
 
   submitToGitHub: authedProcedure
@@ -224,6 +230,10 @@ export const reviewsRouter = router({
 
       const octokit = createGitHubClient(account.accessToken)
 
+      if (!isReviewState(review.state)) {
+        throw new Error(`Invalid review state: ${String(review.state)}`)
+      }
+
       const ghReview = await octokit.pulls.createReview({
         owner: repository.owner,
         repo: repository.name,
@@ -244,6 +254,7 @@ export const reviewsRouter = router({
         `SELECT pg_current_xact_id()::xid::text as txid`
       )
 
-      return { txid: txid.rows[0].txid }
+      const txidValue = parseTxid(txid.rows[0]?.txid)
+      return { txid: txidValue }
     }),
 })

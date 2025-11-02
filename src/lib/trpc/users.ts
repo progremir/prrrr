@@ -3,7 +3,7 @@ import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 
 export const usersRouter = router({
-  create: authedProcedure.input(z.any()).mutation(async () => {
+  create: authedProcedure.input(z.void()).mutation(async () => {
     throw new TRPCError({
       code: `FORBIDDEN`,
       message: `Can't create new users through API`,
@@ -11,7 +11,7 @@ export const usersRouter = router({
   }),
 
   update: authedProcedure
-    .input(z.object({ id: z.string(), data: z.any() }))
+    .input(z.object({ id: z.string() }))
     .mutation(async () => {
       throw new TRPCError({
         code: `FORBIDDEN`,

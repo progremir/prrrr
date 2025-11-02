@@ -1,7 +1,6 @@
-import * as React from "react"
 import { createFileRoute, useParams } from "@tanstack/react-router"
 import { useLiveQuery } from "@tanstack/react-db"
-import { useState } from "react"
+import { useState, type ChangeEvent } from "react"
 import {
   pullRequestsCollection,
   prFilesCollection,
@@ -30,16 +29,25 @@ export const Route = createFileRoute(`/_authenticated/pr/$prId`)({
 
 function PullRequestDetail() {
   const { prId } = useParams({ from: `/_authenticated/pr/$prId` })
-  const { data: session } = authClient.useSession()
   const [viewMode, setViewMode] = useState<`unified` | `split`>(`unified`)
   const [selectedFile, setSelectedFile] = useState<number | null>(null)
   const [showReviewModal, setShowReviewModal] = useState(false)
 
-  const { data: pullRequests } = useLiveQuery((q) => q.from({ pullRequestsCollection }))
-  const { data: prFiles } = useLiveQuery((q) => q.from({ prFilesCollection }))
-  const { data: repositories } = useLiveQuery((q) => q.from({ repositoriesCollection }))
-  const { data: comments } = useLiveQuery((q) => q.from({ commentsCollection }))
-  const { data: reviews } = useLiveQuery((q) => q.from({ reviewsCollection }))
+  const { data: pullRequests = [] } = useLiveQuery((q) =>
+    q.from({ pullRequestsCollection })
+  )
+  const { data: prFiles = [] } = useLiveQuery((q) =>
+    q.from({ prFilesCollection })
+  )
+  const { data: repositories = [] } = useLiveQuery((q) =>
+    q.from({ repositoriesCollection })
+  )
+  const { data: comments = [] } = useLiveQuery((q) =>
+    q.from({ commentsCollection })
+  )
+  const { data: reviews = [] } = useLiveQuery((q) =>
+    q.from({ reviewsCollection })
+  )
 
   const pr = pullRequests.find((p) => p.id === parseInt(prId))
   const files = prFiles.filter((f) => f.pull_request_id === parseInt(prId))
@@ -185,7 +193,6 @@ function PullRequestDetail() {
           <FileCard
             key={file.id}
             file={file}
-            viewMode={viewMode}
             isExpanded={selectedFile === file.id}
             onToggle={() => setSelectedFile(selectedFile === file.id ? null : file.id)}
             prId={parseInt(prId)}
@@ -208,7 +215,6 @@ type FileCardProps = {
     patch: string | null
     viewed: boolean
   }
-  viewMode: `unified` | `split`
   isExpanded: boolean
   onToggle: () => void
   prId: number
@@ -222,7 +228,7 @@ type FileCardProps = {
   }>
 }
 
-function FileCard({ file, viewMode, isExpanded, onToggle, prId, comments }: FileCardProps) {
+function FileCard({ file, isExpanded, onToggle, prId, comments }: FileCardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case `added`:
@@ -236,7 +242,7 @@ function FileCard({ file, viewMode, isExpanded, onToggle, prId, comments }: File
     }
   }
 
-  const handleToggleViewed = async (e: React.MouseEvent) => {
+  const handleToggleViewed = async (e: ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation()
     const newViewed = !file.viewed
 
@@ -292,7 +298,6 @@ function FileCard({ file, viewMode, isExpanded, onToggle, prId, comments }: File
         <div className="bg-white">
           <DiffViewer
             patch={file.patch}
-            viewMode={viewMode}
             filename={file.filename}
             prId={prId}
             comments={comments}
@@ -305,7 +310,6 @@ function FileCard({ file, viewMode, isExpanded, onToggle, prId, comments }: File
 
 type DiffViewerProps = {
   patch: string
-  viewMode: `unified` | `split`
   filename: string
   prId: number
   comments: Array<{
@@ -318,15 +322,17 @@ type DiffViewerProps = {
   }>
 }
 
-function DiffViewer({ patch, viewMode, filename, prId, comments }: DiffViewerProps) {
+function DiffViewer({ patch, filename, prId, comments }: DiffViewerProps) {
   const { data: session } = authClient.useSession()
   const [commentingLine, setCommentingLine] = useState<number | null>(null)
   const [commentText, setCommentText] = useState(``)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const lines = patch.split(`\n`)
 
-  const { data: pullRequests } = useLiveQuery((q) => q.from({ pullRequestsCollection }))
-  const pr = pullRequests.find((p) => p.id === prId)
+  const { data: pullRequests } = useLiveQuery((q) =>
+    q.from({ pullRequestsCollection })
+  )
+  const pr = (pullRequests ?? []).find((p) => p.id === prId)
 
   const handleAddComment = async (lineNumber: number) => {
     if (!commentText.trim()) return
@@ -336,7 +342,9 @@ function DiffViewer({ patch, viewMode, filename, prId, comments }: DiffViewerPro
       return
     }
 
-    if (!session) {
+    const user = session?.user
+
+    if (!user) {
       alert(`Not authenticated`)
       return
     }
@@ -351,9 +359,9 @@ function DiffViewer({ patch, viewMode, filename, prId, comments }: DiffViewerPro
         line: lineNumber,
         side: `RIGHT`,
         commit_id: pr.head_sha,
-        author: session.user.name || session.user.email,
-        author_avatar: session.user.image || null,
-        user_id: session.user.id,
+        author: user.name || user.email,
+        author_avatar: user.image || null,
+        user_id: user.id,
         synced_to_github: false,
         github_id: null,
         created_at: new Date(),

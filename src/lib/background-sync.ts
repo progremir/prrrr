@@ -6,16 +6,16 @@ import {
   removeOfflineOperation,
 } from "@/lib/offline-queue"
 
-function toDate(value: unknown) {
+function toDate(value: string | number | Date | null | undefined) {
   if (!value) return value
   if (value instanceof Date) return value
-  return new Date(value as string | number)
+  return new Date(value)
 }
 
 export function startBackgroundSync() {
   if (typeof window === `undefined`) return
 
-  let syncInterval: NodeJS.Timeout | null = null
+  let syncInterval: ReturnType<typeof setInterval> | null = null
 
   const syncPendingItems = async () => {
     try {
@@ -40,7 +40,7 @@ export function startBackgroundSync() {
             commentsCollection.update(operation.tempId, (draft) => {
               draft.id = serverComment.id
               draft.github_id = serverComment.github_id ?? null
-              draft.synced_to_github = serverComment.synced_to_github ?? false
+              draft.synced_to_github = Boolean(serverComment.synced_to_github)
               const createdAt = toDate(serverComment.created_at)
               const updatedAt = toDate(serverComment.updated_at)
               if (createdAt) {
@@ -65,7 +65,7 @@ export function startBackgroundSync() {
 
             requiresRefresh = true
           } catch (err) {
-            if (isLikelyOfflineError(err)) {
+            if (isLikelyOfflineError(err as Error | TypeError | string | null | undefined)) {
               console.log(`Still offline while flushing queued comments`)
               break
             }

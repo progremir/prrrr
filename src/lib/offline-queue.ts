@@ -1,9 +1,11 @@
+import type { CommentSide } from "@/lib/review-types"
+
 export type CommentCreatePayload = {
   pull_request_id: number
   body: string
   path: string | null
   line: number | null
-  side: `LEFT` | `RIGHT` | null
+  side: CommentSide | null
   commit_id: string | null
 }
 
@@ -101,7 +103,9 @@ export function getPendingCommentCreates(): CommentCreateOperation[] {
 
 const OFFLINE_ERROR_MESSAGE = /Failed to fetch|NetworkError|Network request failed|fetch failed|load failed/i
 
-export function isLikelyOfflineError(error: unknown) {
+export function isLikelyOfflineError(
+  error: Error | TypeError | string | null | undefined
+) {
   if (typeof navigator !== `undefined` && navigator.onLine === false) {
     return true
   }
@@ -113,6 +117,10 @@ export function isLikelyOfflineError(error: unknown) {
   }
 
   if (error instanceof Error && OFFLINE_ERROR_MESSAGE.test(error.message)) {
+    return true
+  }
+
+  if (typeof error === `string` && OFFLINE_ERROR_MESSAGE.test(error)) {
     return true
   }
 

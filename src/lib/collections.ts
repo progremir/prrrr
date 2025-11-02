@@ -14,11 +14,12 @@ import {
   isLikelyOfflineError,
   removeCommentCreateByTempId,
 } from "@/lib/offline-queue"
+import { isCommentSide, isReviewState } from "@/lib/review-types"
 
-function toDate(value: unknown) {
+function toDate(value: string | number | Date | null | undefined) {
   if (!value) return value
   if (value instanceof Date) return value
-  return new Date(value as string | number)
+  return new Date(value)
 }
 
 export const usersCollection = createCollection(
@@ -131,11 +132,11 @@ export async function togglePrFileViewed(fileId: number, viewed: boolean) {
 
     return { txid: result.txid }
   } catch (error) {
-    if (typeof previousValue === `boolean`) {
-      prFilesCollection.update(fileId, (draft) => {
-        draft.viewed = previousValue
-      })
-    }
+    const restoredValue = typeof previousValue === `boolean` ? previousValue : false
+
+    prFilesCollection.update(fileId, (draft) => {
+      draft.viewed = restoredValue
+    })
 
     throw error
   }
@@ -161,12 +162,16 @@ export const commentsCollection = createCollection(
     getKey: (item) => item.id,
     onInsert: async ({ transaction }) => {
       const { modified: newComment } = transaction.mutations[0]
+      const commentSide = isCommentSide(newComment.side)
+        ? newComment.side
+        : undefined
+
       const mutationInput = {
         pull_request_id: newComment.pull_request_id,
         body: newComment.body,
         path: newComment.path || undefined,
         line: newComment.line || undefined,
-        side: newComment.side || undefined,
+        side: commentSide,
         commit_id: newComment.commit_id || undefined,
       }
       const queuedPayload = {
@@ -174,13 +179,13 @@ export const commentsCollection = createCollection(
         body: newComment.body,
         path: newComment.path ?? null,
         line: newComment.line ?? null,
-        side: (newComment.side as `LEFT` | `RIGHT` | null) ?? null,
+        side: commentSide ?? null,
         commit_id: newComment.commit_id ?? null,
       }
 
       const queueAndResolve = () => {
         enqueueCommentCreate(newComment.id, queuedPayload)
-        return { txid: `offline-${Date.now()}` }
+        return undefined
       }
 
       if (typeof navigator !== `undefined` && navigator.onLine === false) {
@@ -195,7 +200,7 @@ export const commentsCollection = createCollection(
         commentsCollection.update(newComment.id, (draft) => {
           draft.id = serverComment.id
           draft.github_id = serverComment.github_id ?? null
-          draft.synced_to_github = serverComment.synced_to_github ?? false
+          draft.synced_to_github = Boolean(serverComment.synced_to_github)
           const createdAt = toDate(serverComment.created_at)
           const updatedAt = toDate(serverComment.updated_at)
           if (createdAt) {
@@ -218,7 +223,7 @@ export const commentsCollection = createCollection(
 
         return { txid: result.txid }
       } catch (err) {
-        if (isLikelyOfflineError(err)) {
+        if (isLikelyOfflineError(err as Error | TypeError | string | null | undefined)) {
           console.log(`Unable to reach server - queueing comment create for later sync`)
           return queueAndResolve()
         }
@@ -232,7 +237,7 @@ export const commentsCollection = createCollection(
 
       if (removedFromQueue) {
         console.log(`Removed pending offline comment ${deletedComment.id}`)
-        return { txid: `offline-${Date.now()}` }
+        return
       }
 
       const result = await trpc.comments.delete.mutate({
@@ -264,7 +269,11 @@ export const reviewsCollection = createCollection(
     getKey: (item) => item.id,
     onInsert: async ({ transaction }) => {
       const { modified: newReview } = transaction.mutations[0]
-      
+
+      if (!isReviewState(newReview.state)) {
+        throw new Error(`Invalid review state: ${String(newReview.state)}`)
+      }
+
       try {
         const result = await trpc.reviews.create.mutate({
           pull_request_id: newReview.pull_request_id,
@@ -281,7 +290,7 @@ export const reviewsCollection = createCollection(
         return { txid: result.txid }
       } catch (err) {
         console.log(`Offline - review will sync when connection restored:`, err)
-        return { txid: `offline-${Date.now()}` }
+        return
       }
     },
   })
@@ -299,11 +308,11 @@ export async function syncReviewToGitHub(reviewId: number) {
     const result = await trpc.reviews.submitToGitHub.mutate({ reviewId })
     return { txid: result.txid }
   } catch (error) {
-    if (typeof previousValue === `boolean`) {
-      reviewsCollection.update(reviewId, (draft) => {
-        draft.synced_to_github = previousValue
-      })
-    }
+    const restoredValue = typeof previousValue === `boolean` ? previousValue : false
+
+    reviewsCollection.update(reviewId, (draft) => {
+      draft.synced_to_github = restoredValue
+    })
 
     throw error
   }

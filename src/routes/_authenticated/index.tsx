@@ -1,4 +1,3 @@
-import * as React from "react"
 import { createFileRoute, redirect, Link } from "@tanstack/react-router"
 import { useLiveQuery } from "@tanstack/react-db"
 import { useState } from "react"
@@ -33,8 +32,14 @@ function PullRequestList() {
   const [showSyncRepos, setShowSyncRepos] = useState(false)
   const [showSyncPRs, setShowSyncPRs] = useState(false)
   
-  const { data: repositories } = useLiveQuery((q) => q.from({ repositoriesCollection }), [showSyncRepos, showSyncPRs])
-  const { data: pullRequests } = useLiveQuery((q) => q.from({ pullRequestsCollection }), [showSyncPRs])
+  const { data: repositories = [] } = useLiveQuery(
+    (q) => q.from({ repositoriesCollection }),
+    [showSyncRepos, showSyncPRs]
+  )
+  const { data: pullRequests = [] } = useLiveQuery(
+    (q) => q.from({ pullRequestsCollection }),
+    [showSyncPRs]
+  )
 
   const filteredPRs = pullRequests.filter((pr) => {
     const matchesSearch = searchTerm === `` || 

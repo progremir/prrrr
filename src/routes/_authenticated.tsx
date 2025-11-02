@@ -1,24 +1,61 @@
-import * as React from "react"
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router"
-import { Outlet } from "@tanstack/react-router"
+import { createFileRoute, useNavigate, Link, Outlet } from "@tanstack/react-router"
 import { authClient, authStateCollection } from "@/lib/auth-client"
 import { useLiveQuery } from "@tanstack/react-db"
 import { repositoriesCollection } from "@/lib/collections"
 
+function getExpiresAt(value: Date | string | number | null | undefined): Date | null {
+  if (value instanceof Date) {
+    return value
+  }
+
+  if (typeof value === `string` || typeof value === `number`) {
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  return null
+}
+
+function extractErrorMessage(
+  error: Error | { message?: string } | string | null | undefined
+): string {
+  if (!error) {
+    return ``
+  }
+
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  if (typeof error === `string`) {
+    return error
+  }
+
+  if (typeof error.message === `string`) {
+    return error.message
+  }
+
+  return ``
+}
+
 export const Route = createFileRoute(`/_authenticated`)({
-  ssr: false, // Disable SSR - run beforeLoad only on client
+  ssr: false,
   component: AuthenticatedLayout,
   beforeLoad: async () => {
-    if (
-      authStateCollection.get(`auth`) &&
-      authStateCollection.get(`auth`)?.session.expiresAt > new Date()
-    ) {
-      return authStateCollection.get(`auth`)!
-    } else {
-      const result = await authClient.getSession()
-      authStateCollection.insert({ id: `auth`, ...result.data })
-      return result.data
+    const existingAuth = authStateCollection.get(`auth`)
+    const existingExpiry = getExpiresAt(existingAuth?.session?.expiresAt)
+
+    if (existingAuth && existingExpiry && existingExpiry > new Date()) {
+      return existingAuth
     }
+
+    const result = await authClient.getSession()
+
+    if (result.data) {
+      authStateCollection.insert({ id: `auth`, ...result.data })
+    }
+
+    return result.data ?? null
   },
   errorComponent: ({ error }) => {
     const ErrorComponent = () => {
@@ -36,7 +73,13 @@ export const Route = createFileRoute(`/_authenticated`)({
           <div className="text-center">
             <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
             <p className="text-gray-600 mb-4">
-              {error?.message || `An unexpected error occurred`}
+              {extractErrorMessage(
+                error instanceof Error
+                  ? error
+                  : typeof error === `string`
+                  ? error
+                  : null
+              ) || `An unexpected error occurred`}
             </p>
             <button
               onClick={() => window.location.reload()}
@@ -57,7 +100,7 @@ function AuthenticatedLayout() {
   const { data: session, isPending } = authClient.useSession()
   const navigate = useNavigate()
 
-  const { data: repositories } = useLiveQuery((q) =>
+  const { data: repositories = [] } = useLiveQuery((q) =>
     q.from({ repositoriesCollection })
   )
 
@@ -88,9 +131,11 @@ function AuthenticatedLayout() {
               <span className="text-sm text-gray-600">
                 {repositories.length} {repositories.length === 1 ? `repo` : `repos`}
               </span>
-              <span className="text-sm text-gray-700">
-                {session.user.email}
-              </span>
+              {session?.user?.email && (
+                <span className="text-sm text-gray-700">
+                  {session.user.email}
+                </span>
+              )}
               <button
                 onClick={handleLogout}
                 className="text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"

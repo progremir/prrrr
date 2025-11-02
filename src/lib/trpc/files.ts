@@ -2,6 +2,7 @@ import { z } from "zod"
 import { router, authedProcedure } from "@/lib/trpc"
 import { prFilesTable } from "@/db/schema"
 import { eq } from "drizzle-orm"
+import { parseTxid } from "@/lib/txid"
 
 export const filesRouter = router({
   toggleViewed: authedProcedure
@@ -21,6 +22,8 @@ export const filesRouter = router({
         `SELECT pg_current_xact_id()::xid::text as txid`
       )
 
-      return { txid: txid.rows[0].txid }
+      const txidValue = parseTxid(txid.rows[0]?.txid)
+
+      return { txid: txidValue }
     }),
 })

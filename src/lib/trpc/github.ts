@@ -11,6 +11,24 @@ import {
   fetchPullRequestComments,
   fetchPullRequestReviews,
 } from "@/lib/github"
+import { parseTxid } from "@/lib/txid"
+import { isCommentSide, isReviewState } from "@/lib/review-types"
+
+function getErrorMessage(error: Error | { message?: string } | string | null | undefined) {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  if (typeof error === `string`) {
+    return error
+  }
+
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return `Unknown error`
+  }
+}
 
 export const githubRouter = router({
   syncRepositories: authedProcedure.mutation(async ({ ctx }) => {
@@ -56,7 +74,9 @@ export const githubRouter = router({
       `SELECT pg_current_xact_id()::xid::text as txid`
     )
 
-    return { count: repos.length, txid: txid.rows[0].txid }
+    const txidValue = parseTxid(txid.rows[0]?.txid)
+
+    return { count: repos.length, txid: txidValue }
   }),
 
   syncPullRequests: authedProcedure
@@ -97,9 +117,10 @@ export const githubRouter = router({
           repository.name,
           input.state
         )
-      } catch (err: any) {
-        console.error(`GitHub API error:`, err)
-        throw new Error(`Failed to fetch PRs from GitHub: ${err.message || err.toString()}`)
+      } catch (error) {
+        console.error(`GitHub API error:`, error)
+        const reason = getErrorMessage(error as Error | { message?: string } | string | null | undefined)
+        throw new Error(`Failed to fetch PRs from GitHub: ${reason}`)
       }
 
       for (const pr of prs) {
@@ -118,8 +139,8 @@ export const githubRouter = router({
               base_branch: pr.base.ref,
               head_branch: pr.head.ref,
               head_sha: pr.head.sha,
-            mergeable: pr.mergeable ?? null,
-              merged: pr.merged || false,
+              mergeable: null,
+              merged: Boolean(pr.merged_at),
               draft: pr.draft || false,
               created_at: new Date(pr.created_at),
               updated_at: new Date(pr.updated_at),
@@ -134,8 +155,8 @@ export const githubRouter = router({
                 body: pr.body || null,
                 state: pr.state,
                 head_sha: pr.head.sha,
-                mergeable: pr.mergeable ?? null,
-                merged: pr.merged || false,
+                mergeable: null,
+                merged: Boolean(pr.merged_at),
                 draft: pr.draft || false,
                 updated_at: new Date(pr.updated_at),
                 closed_at: pr.closed_at ? new Date(pr.closed_at) : null,
@@ -143,18 +164,26 @@ export const githubRouter = router({
               },
             })
             .returning()
-        } catch (err: any) {
-          console.error(`Failed to insert PR #${pr.number}:`, err)
-          console.error(`PR data:`, JSON.stringify({
-            github_id: pr.id,
-            number: pr.number,
-            title: pr.title,
-            state: pr.state,
-            mergeable: pr.mergeable,
-            merged: pr.merged,
-            draft: pr.draft,
-          }, null, 2))
-          throw new Error(`Failed to insert PR #${pr.number}: ${err.message}`)
+        } catch (error) {
+          console.error(`Failed to insert PR #${pr.number}:`, error)
+          console.error(
+            `PR data:`,
+            JSON.stringify(
+              {
+                github_id: pr.id,
+                number: pr.number,
+                title: pr.title,
+                state: pr.state,
+                mergeable: null,
+                merged: Boolean(pr.merged_at),
+                draft: pr.draft,
+              },
+              null,
+              2
+            )
+          )
+          const reason = getErrorMessage(error as Error | { message?: string } | string | null | undefined)
+          throw new Error(`Failed to insert PR #${pr.number}: ${reason}`)
         }
 
         const prId = insertedPr[0]?.id
@@ -194,13 +223,14 @@ export const githubRouter = router({
         )
 
         for (const comment of comments) {
+          const side = isCommentSide(comment.side) ? comment.side : null
           await ctx.db
             .insert(commentsTable)
             .values({
               github_id: comment.id,
               body: comment.body || ``,
               line: comment.line || null,
-              side: comment.side || null,
+              side,
               path: comment.path || null,
               commit_id: comment.commit_id || null,
               author: comment.user?.login || `unknown`,
@@ -229,11 +259,15 @@ export const githubRouter = router({
         for (const review of reviews) {
           if (review.state === `PENDING`) continue
 
+          const reviewState = isReviewState(review.state)
+            ? review.state
+            : `COMMENT`
+
           await ctx.db
             .insert(reviewsTable)
             .values({
               github_id: review.id,
-              state: review.state,
+              state: reviewState,
               body: review.body || null,
               author: review.user?.login || `unknown`,
               author_avatar: review.user?.avatar_url || null,
@@ -245,7 +279,7 @@ export const githubRouter = router({
             .onConflictDoUpdate({
               target: reviewsTable.github_id,
               set: {
-                state: review.state,
+                state: reviewState,
                 body: review.body || null,
                 submitted_at: review.submitted_at ? new Date(review.submitted_at) : null,
               },
@@ -257,6 +291,8 @@ export const githubRouter = router({
         `SELECT pg_current_xact_id()::xid::text as txid`
       )
 
-      return { count: prs.length, txid: txid.rows[0].txid }
+      const txidValue = parseTxid(txid.rows[0]?.txid)
+
+      return { count: prs.length, txid: txidValue }
     }),
 })
