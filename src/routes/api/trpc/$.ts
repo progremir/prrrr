@@ -5,6 +5,7 @@ import { usersRouter } from "@/lib/trpc/users"
 import { githubRouter } from "@/lib/trpc/github"
 import { commentsRouter, reviewsRouter } from "@/lib/trpc/comments"
 import { filesRouter } from "@/lib/trpc/files"
+import { eventsRouter } from "@/lib/trpc/events"
 import { db } from "@/db/connection"
 import { auth } from "@/lib/auth"
 
@@ -14,6 +15,7 @@ export const appRouter = router({
   comments: commentsRouter,
   reviews: reviewsRouter,
   files: filesRouter,
+  events: eventsRouter,
 })
 
 export type AppRouter = typeof appRouter

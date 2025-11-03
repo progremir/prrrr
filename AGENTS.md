@@ -21,6 +21,7 @@ This command will also report linter errors that were not automatically fixable.
 ## Build/Test Commands
 
 - `pnpm run dev` - Start development server with Docker services
+- `pnpm run typecheck` - Check types
 - `pnpm run build` - Build for production
 - `pnpm run lint` - Run ESLint and auto-fix issues (must run after editing files)
 - `pnpm run format` - Run Prettier to format code

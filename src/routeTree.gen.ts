@@ -17,6 +17,8 @@ import { Route as ApiReviewsRouteImport } from './routes/api/reviews'
 import { Route as ApiRepositoriesRouteImport } from './routes/api/repositories'
 import { Route as ApiPullRequestsRouteImport } from './routes/api/pull-requests'
 import { Route as ApiPrFilesRouteImport } from './routes/api/pr-files'
+import { Route as ApiPrEventsRouteImport } from './routes/api/pr-events'
+import { Route as ApiGithubWebhookRouteImport } from './routes/api/github-webhook'
 import { Route as ApiCommentsRouteImport } from './routes/api/comments'
 import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
@@ -61,6 +63,16 @@ const ApiPrFilesRoute = ApiPrFilesRouteImport.update({
   path: '/api/pr-files',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPrEventsRoute = ApiPrEventsRouteImport.update({
+  id: '/api/pr-events',
+  path: '/api/pr-events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubWebhookRoute = ApiGithubWebhookRouteImport.update({
+  id: '/api/github-webhook',
+  path: '/api/github-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCommentsRoute = ApiCommentsRouteImport.update({
   id: '/api/comments',
   path: '/api/comments',
@@ -86,6 +98,8 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/comments': typeof ApiCommentsRoute
+  '/api/github-webhook': typeof ApiGithubWebhookRoute
+  '/api/pr-events': typeof ApiPrEventsRoute
   '/api/pr-files': typeof ApiPrFilesRoute
   '/api/pull-requests': typeof ApiPullRequestsRoute
   '/api/repositories': typeof ApiRepositoriesRoute
@@ -99,6 +113,8 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/comments': typeof ApiCommentsRoute
+  '/api/github-webhook': typeof ApiGithubWebhookRoute
+  '/api/pr-events': typeof ApiPrEventsRoute
   '/api/pr-files': typeof ApiPrFilesRoute
   '/api/pull-requests': typeof ApiPullRequestsRoute
   '/api/repositories': typeof ApiRepositoriesRoute
@@ -114,6 +130,8 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/comments': typeof ApiCommentsRoute
+  '/api/github-webhook': typeof ApiGithubWebhookRoute
+  '/api/pr-events': typeof ApiPrEventsRoute
   '/api/pr-files': typeof ApiPrFilesRoute
   '/api/pull-requests': typeof ApiPullRequestsRoute
   '/api/repositories': typeof ApiRepositoriesRoute
@@ -129,6 +147,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/api/auth'
     | '/api/comments'
+    | '/api/github-webhook'
+    | '/api/pr-events'
     | '/api/pr-files'
     | '/api/pull-requests'
     | '/api/repositories'
@@ -142,6 +162,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/api/auth'
     | '/api/comments'
+    | '/api/github-webhook'
+    | '/api/pr-events'
     | '/api/pr-files'
     | '/api/pull-requests'
     | '/api/repositories'
@@ -156,6 +178,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/api/auth'
     | '/api/comments'
+    | '/api/github-webhook'
+    | '/api/pr-events'
     | '/api/pr-files'
     | '/api/pull-requests'
     | '/api/repositories'
@@ -171,6 +195,8 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ApiAuthRoute: typeof ApiAuthRoute
   ApiCommentsRoute: typeof ApiCommentsRoute
+  ApiGithubWebhookRoute: typeof ApiGithubWebhookRoute
+  ApiPrEventsRoute: typeof ApiPrEventsRoute
   ApiPrFilesRoute: typeof ApiPrFilesRoute
   ApiPullRequestsRoute: typeof ApiPullRequestsRoute
   ApiRepositoriesRoute: typeof ApiRepositoriesRoute
@@ -237,6 +263,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPrFilesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pr-events': {
+      id: '/api/pr-events'
+      path: '/api/pr-events'
+      fullPath: '/api/pr-events'
+      preLoaderRoute: typeof ApiPrEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github-webhook': {
+      id: '/api/github-webhook'
+      path: '/api/github-webhook'
+      fullPath: '/api/github-webhook'
+      preLoaderRoute: typeof ApiGithubWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/comments': {
       id: '/api/comments'
       path: '/api/comments'
@@ -287,6 +327,8 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ApiAuthRoute: ApiAuthRoute,
   ApiCommentsRoute: ApiCommentsRoute,
+  ApiGithubWebhookRoute: ApiGithubWebhookRoute,
+  ApiPrEventsRoute: ApiPrEventsRoute,
   ApiPrFilesRoute: ApiPrFilesRoute,
   ApiPullRequestsRoute: ApiPullRequestsRoute,
   ApiRepositoriesRoute: ApiRepositoriesRoute,

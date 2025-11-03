@@ -48,6 +48,17 @@ Follow these steps in order for a smooth first-time setup:
 
 If you run into issues, see the [pre-reqs](#pre-requisites) and [troubleshooting](#common-pitfalls) sections below.
 
+## GitHub PR Event Sync
+
+The app listens for GitHub pull request activity via a signed webhook endpoint.
+
+1. **Generate a webhook secret** and set `GITHUB_WEBHOOK_SECRET` in your `.env` file.
+2. **Create a repository webhook** in GitHub that targets `https://your-app-domain/api/github-webhook` (use `http://localhost:5173/api/github-webhook` when tunneling in development).
+3. **Subscribe to these events:** `Pull requests`, `Pull request reviews`, `Pull request review comments`, and `Issue comments`.
+4. **Validate delivery health** from the dashboard – the Pull Requests list now surfaces pending, processed, failed, and ignored event counts plus the latest failure details.
+
+Incoming deliveries are persisted with their raw payloads for replay. If any ingest attempt fails, the event is marked as `failed`; you can replay it later through the `events.replay` tRPC mutation or by triggering a GitHub redelivery.
+
 ## Adding a New Table
 
 Here's how to add a new table to your app (using a "categories" table as an example):

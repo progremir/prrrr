@@ -7,6 +7,7 @@ import {
   selectPrFileSchema,
   selectCommentSchema,
   selectReviewSchema,
+  selectPrEventSchema,
 } from "@/db/schema"
 import { trpc } from "@/lib/trpc-client"
 import {
@@ -293,6 +294,25 @@ export const reviewsCollection = createCollection(
         return
       }
     },
+  })
+)
+
+export const prEventsCollection = createCollection(
+  electricCollectionOptions({
+    id: `pr_events`,
+    shapeOptions: {
+      url: new URL(
+        `/api/pr-events`,
+        typeof window !== `undefined`
+          ? window.location.origin
+          : `http://localhost:5173`
+      ).toString(),
+      parser: {
+        timestamptz: (date: string) => new Date(date),
+      },
+    },
+    schema: selectPrEventSchema,
+    getKey: (item) => item.id,
   })
 )
 

@@ -6,6 +6,7 @@ import {
   varchar,
   text,
   bigint,
+  jsonb,
 } from "drizzle-orm/pg-core"
 import { createSchemaFactory } from "drizzle-zod"
 import { z } from "zod"
@@ -87,9 +88,9 @@ export const commentsTable = pgTable(`comments`, {
   pull_request_id: integer(`pull_request_id`)
     .notNull()
     .references(() => pullRequestsTable.id, { onDelete: `cascade` }),
-  user_id: text(`user_id`)
-    .notNull()
-    .references(() => users.id, { onDelete: `cascade` }),
+  user_id: text(`user_id`).references(() => users.id, {
+    onDelete: `set null`,
+  }),
 })
 
 export const reviewsTable = pgTable(`reviews`, {
@@ -105,9 +106,25 @@ export const reviewsTable = pgTable(`reviews`, {
   pull_request_id: integer(`pull_request_id`)
     .notNull()
     .references(() => pullRequestsTable.id, { onDelete: `cascade` }),
-  user_id: text(`user_id`)
-    .notNull()
-    .references(() => users.id, { onDelete: `cascade` }),
+  user_id: text(`user_id`).references(() => users.id, {
+    onDelete: `set null`,
+  }),
+})
+
+export const prEventsTable = pgTable(`pr_events`, {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  delivery_id: varchar({ length: 255 }).notNull().unique(),
+  github_event: varchar({ length: 100 }).notNull(),
+  action: varchar({ length: 100 }),
+  repository_github_id: bigint(`repository_github_id`, { mode: 'number' }),
+  pull_request_github_id: bigint(`pull_request_github_id`, { mode: 'number' }),
+  status: varchar({ length: 50 }).notNull().default(`pending`),
+  retry_count: integer(`retry_count`).notNull().default(0),
+  error_message: text(`error_message`),
+  payload: jsonb(`payload`).notNull(),
+  processed_at: timestamp({ withTimezone: true }),
+  created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
 })
 
 export const selectRepositorySchema = createSelectSchema(repositoriesTable)
@@ -130,10 +147,15 @@ export const selectReviewSchema = createSelectSchema(reviewsTable)
 export const createReviewSchema = createInsertSchema(reviewsTable)
 export const updateReviewSchema = createUpdateSchema(reviewsTable)
 
+export const selectPrEventSchema = createSelectSchema(prEventsTable)
+export const createPrEventSchema = createInsertSchema(prEventsTable)
+export const updatePrEventSchema = createUpdateSchema(prEventsTable)
+
 export type Repository = z.infer<typeof selectRepositorySchema>
 export type PullRequest = z.infer<typeof selectPullRequestSchema>
 export type PrFile = z.infer<typeof selectPrFileSchema>
 export type Comment = z.infer<typeof selectCommentSchema>
 export type Review = z.infer<typeof selectReviewSchema>
+export type PrEvent = z.infer<typeof selectPrEventSchema>
 
 export const selectUsersSchema = createSelectSchema(users)

@@ -1,10 +1,15 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router"
 import { useLiveQuery } from "@tanstack/react-db"
 import { useState } from "react"
-import { repositoriesCollection, pullRequestsCollection } from "@/lib/collections"
+import {
+  repositoriesCollection,
+  pullRequestsCollection,
+  prEventsCollection,
+} from "@/lib/collections"
 import { authClient } from "@/lib/auth-client"
 import { SyncReposModal } from "@/components/sync-repos-modal"
 import { SyncPRsModal } from "@/components/sync-prs-modal"
+import { usePrEventMetrics } from "@/lib/pr-event-metrics"
 
 export const Route = createFileRoute(`/_authenticated/`)({
   component: PullRequestList,
@@ -21,7 +26,11 @@ export const Route = createFileRoute(`/_authenticated/`)({
     }
   },
   loader: async () => {
-    await Promise.all([repositoriesCollection.preload(), pullRequestsCollection.preload()])
+    await Promise.all([
+      repositoriesCollection.preload(),
+      pullRequestsCollection.preload(),
+      prEventsCollection.preload(),
+    ])
     return null
   },
 })
@@ -40,6 +49,7 @@ function PullRequestList() {
     (q) => q.from({ pullRequestsCollection }),
     [showSyncPRs]
   )
+  const syncMetrics = usePrEventMetrics()
 
   const filteredPRs = pullRequests.filter((pr) => {
     const matchesSearch = searchTerm === `` || 
@@ -57,6 +67,50 @@ function PullRequestList() {
           <p className="mt-2 text-sm text-gray-600">
             {repositories.length} {repositories.length === 1 ? `repository` : `repositories`} synced
           </p>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
+            <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-blue-700">
+              Pending Events
+              <span className="rounded-full bg-blue-200 px-2 py-0.5 text-blue-900">
+                {syncMetrics.pending}
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-green-700">
+              Processed
+              <span className="rounded-full bg-green-200 px-2 py-0.5 text-green-900">
+                {syncMetrics.processed}
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-gray-50 px-3 py-1 text-gray-700">
+              Ignored
+              <span className="rounded-full bg-gray-200 px-2 py-0.5 text-gray-900">
+                {syncMetrics.ignored}
+              </span>
+            </span>
+            <span
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 ${
+                syncMetrics.failed > 0
+                  ? `bg-red-100 text-red-700`
+                  : `bg-emerald-50 text-emerald-700`
+              }`}
+            >
+              Failed
+              <span
+                className={`rounded-full px-2 py-0.5 ${
+                  syncMetrics.failed > 0
+                    ? `bg-red-200 text-red-900`
+                    : `bg-emerald-200 text-emerald-900`
+                }`}
+              >
+                {syncMetrics.failed}
+              </span>
+            </span>
+          </div>
+          {syncMetrics.latestFailure && (
+            <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+              Last failure {syncMetrics.latestFailure.deliveryId} • {" "}
+              {syncMetrics.latestFailure.errorMessage ?? `No error message provided`}
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <button

@@ -61,14 +61,21 @@ A fully functional offline-first GitHub PR review app with core features complet
 **Goal**: Exceed GitHub's experience
 
 ### High Priority
-- [ ] **Auto-sync pending reviews to GitHub**
-  - [ ] Auto-sync on review submission (checkbox option)
-  - [x] "Sync to GitHub" manual button for pending reviews
-  - [x] Batch sync for multiple reviews
-  - [x] Visual sync status indicators
-  - [x] Error handling with user feedback
-  - [ ] Retry logic for failed syncs
-  - [x] Background worker for periodic sync
+- [ ] **Auto-sync GitHub PR events**
+  - [x] Register GitHub webhook bridge for PR comments, reviews, approvals, merges, closes
+  - [x] Persist incoming events with idempotency keys and replay support
+  - [x] Map events into Electric collections for real-time client updates
+  - [x] Surface sync health metrics and alerting
+  - [ ] Automate webhook registration during repository sync
+  - [ ] Implement retry/backfill pipeline for missed events
+  - [ ] Write integration tests covering event permutations
+
+- [ ] **Threaded replies**
+  - [ ] Extend data model to link replies with parent comments (Electric + TanStack DB)
+  - [ ] Render inline reply UI with optimistic inserts
+  - [ ] Sync reply mutations through tRPC with tx tracking
+  - [ ] Support resolve/reopen actions on threads
+  - [ ] Add quick reply shortcuts and keyboard focus management
 
 - [ ] **Keyboard shortcuts**
   - `j/k` - Navigate between files
@@ -78,18 +85,13 @@ A fully functional offline-first GitHub PR review app with core features complet
   - `r` - Request changes
   - `?` - Show keyboard shortcuts help
 
-- [ ] **Multi-PR tabs**
-  - Open multiple PRs simultaneously
-  - Tab management (close, reorder)
-  - Compare PRs side-by-side
-  - Persist open tabs
-
 ### Medium Priority
-- [ ] **Rich markdown support**
-  - Render markdown in comments
-  - Preview while typing
-  - GitHub-flavored markdown
-  - Syntax highlighting in code blocks
+- [ ] **Rich rendering pipeline**
+  - Render markdown with GitHub-flavored extensions
+  - Highlight TypeScript and common languages in code blocks
+  - Support inline diff snippets and file previews (e.g., images, JSON)
+  - Graceful fallback rendering for unknown types
+  - Add renderer unit tests and visual regression coverage
 
 - [ ] **Review statistics dashboard**
   - PRs reviewed count
@@ -174,9 +176,9 @@ A fully functional offline-first GitHub PR review app with core features complet
 **Active Phase**: Planning Phase 4
 
 **Next Up**:
-1. Auto-sync reviews to GitHub (most requested)
-2. Keyboard shortcuts for power users
-3. Markdown rendering for better readability
+1. Auto-sync GitHub PR events (comments, approvals, merges, closes)
+2. Ship threaded replies UI and data flow
+3. Build rich rendering pipeline for markdown and code previews
 
 ---
 
