@@ -10,6 +10,7 @@ import {
   fetchPullRequestFiles,
   fetchPullRequestComments,
   fetchPullRequestReviews,
+  ensureRepositoryWebhook,
 } from "@/lib/github"
 import { parseTxid } from "@/lib/txid"
 import { isCommentSide, isReviewState } from "@/lib/review-types"
@@ -108,7 +109,32 @@ export const githubRouter = router({
       }
 
       const octokit = createGitHubClient(account.accessToken)
-      
+
+      // Automatically register webhook for this repository (if not already registered)
+      const webhookUrl = process.env.GITHUB_WEBHOOK_URL
+      const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET
+      let webhookRegistered = false
+
+      if (webhookUrl && webhookSecret) {
+        try {
+          await ensureRepositoryWebhook(
+            octokit,
+            repository.owner,
+            repository.name,
+            webhookUrl,
+            webhookSecret
+          )
+          webhookRegistered = true
+        } catch (error) {
+          // Log webhook registration error but don't fail the entire sync
+          console.error(`Failed to register webhook for ${repository.full_name}:`, error)
+        }
+      } else {
+        console.warn(
+          `GITHUB_WEBHOOK_URL or GITHUB_WEBHOOK_SECRET not configured. Skipping webhook registration.`
+        )
+      }
+
       let prs
       try {
         prs = await fetchRepositoryPullRequests(
@@ -293,6 +319,78 @@ export const githubRouter = router({
 
       const txidValue = parseTxid(txid.rows[0]?.txid)
 
-      return { count: prs.length, txid: txidValue }
+      return {
+        count: prs.length,
+        txid: txidValue,
+        webhookRegistered,
+      }
+    }),
+
+  registerWebhook: authedProcedure
+    .input(
+      z.object({
+        repositoryId: z.number(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const webhookUrl = process.env.GITHUB_WEBHOOK_URL
+      const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET
+
+      if (!webhookUrl) {
+        throw new Error(`GITHUB_WEBHOOK_URL environment variable is not configured`)
+      }
+
+      if (!webhookSecret) {
+        throw new Error(`GITHUB_WEBHOOK_SECRET environment variable is not configured`)
+      }
+
+      const [account] = await ctx.db
+        .select()
+        .from(accounts)
+        .where(eq(accounts.userId, ctx.session.user.id))
+        .limit(1)
+
+      if (!account?.accessToken) {
+        throw new Error(`No GitHub account connected`)
+      }
+
+      const [repository] = await ctx.db
+        .select()
+        .from(repositoriesTable)
+        .where(eq(repositoriesTable.id, input.repositoryId))
+        .limit(1)
+
+      if (!repository) {
+        throw new Error(`Repository not found`)
+      }
+
+      if (repository.user_id !== ctx.session.user.id) {
+        throw new Error(`You don't have access to this repository`)
+      }
+
+      const octokit = createGitHubClient(account.accessToken)
+
+      try {
+        const result = await ensureRepositoryWebhook(
+          octokit,
+          repository.owner,
+          repository.name,
+          webhookUrl,
+          webhookSecret
+        )
+
+        return {
+          success: true,
+          webhookId: result.id,
+          created: result.created,
+          message: result.created
+            ? `Webhook registered successfully`
+            : `Webhook already exists and was updated`,
+        }
+      } catch (error) {
+        console.error(`Failed to register webhook:`, error)
+        const reason = getErrorMessage(error as Error | { message?: string } | string | null | undefined)
+        throw new Error(`Failed to register webhook: ${reason}`)
+      }
     }),
 })

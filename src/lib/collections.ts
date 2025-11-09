@@ -101,6 +101,11 @@ export async function syncRepositoryPullRequests(input: {
   return result
 }
 
+export async function registerRepositoryWebhook(repositoryId: number) {
+  const result = await trpc.github.registerWebhook.mutate({ repositoryId })
+  return result
+}
+
 export const prFilesCollection = createCollection(
   electricCollectionOptions({
     id: `pr_files`,
