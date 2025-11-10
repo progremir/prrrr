@@ -1,6 +1,6 @@
 # PR Review App - Roadmap
 
-**Last Updated**: November 2, 2025
+**Last Updated**: November 8, 2025
 
 ## Project Status: Phase 3 Complete ✅
 
@@ -65,7 +65,8 @@ A fully functional offline-first GitHub PR review app with core features complet
   - [x] Register GitHub webhook bridge for PR comments, reviews, approvals, merges, closes
   - [x] Persist incoming events with idempotency keys and replay support
   - [x] Map events into Electric collections for real-time client updates
-  - [x] Surface sync health metrics and alerting
+  - [x] Display sync health metrics in dashboard
+  - [ ] Implement proactive alerting for sync failures
   - [ ] Automate webhook registration during repository sync
   - [ ] Implement retry/backfill pipeline for missed events
   - [ ] Write integration tests covering event permutations
@@ -77,6 +78,14 @@ A fully functional offline-first GitHub PR review app with core features complet
   - [ ] Support resolve/reopen actions on threads
   - [ ] Add quick reply shortcuts and keyboard focus management
 
+- [ ] **Rich rendering pipeline**
+  - Render markdown with GitHub-flavored extensions
+  - Highlight TypeScript and common languages in code blocks
+  - Support inline diff snippets and file previews (e.g., images, JSON)
+  - Graceful fallback rendering for unknown types
+  - Add renderer unit tests and visual regression coverage
+
+### Medium Priority
 - [ ] **Keyboard shortcuts**
   - `j/k` - Navigate between files
   - `c` - Add comment
@@ -84,14 +93,6 @@ A fully functional offline-first GitHub PR review app with core features complet
   - `a` - Approve
   - `r` - Request changes
   - `?` - Show keyboard shortcuts help
-
-### Medium Priority
-- [ ] **Rich rendering pipeline**
-  - Render markdown with GitHub-flavored extensions
-  - Highlight TypeScript and common languages in code blocks
-  - Support inline diff snippets and file previews (e.g., images, JSON)
-  - Graceful fallback rendering for unknown types
-  - Add renderer unit tests and visual regression coverage
 
 - [ ] **Review statistics dashboard**
   - PRs reviewed count
@@ -173,12 +174,12 @@ A fully functional offline-first GitHub PR review app with core features complet
 
 ## 🎯 Current Focus
 
-**Active Phase**: Planning Phase 4
+**Active Phase**: Phase 4 execution
 
 **Next Up**:
-1. Auto-sync GitHub PR events (comments, approvals, merges, closes)
-2. Ship threaded replies UI and data flow
-3. Build rich rendering pipeline for markdown and code previews
+1. Finish GitHub auto-sync by automating webhook registration, retries, and alerting
+2. Ship threaded replies UI and data flow (schema + optimistic flows)
+3. Introduce keyboard shortcuts for core review navigation and actions
 
 ---
 
@@ -190,6 +191,7 @@ A fully functional offline-first GitHub PR review app with core features complet
 - [ ] No reply to comments yet (threads)
 - [ ] Can't resolve/unresolve conversations
 - [ ] No code suggestions feature
+- [ ] GitHub webhook registration is still manual
 
 ---
 
