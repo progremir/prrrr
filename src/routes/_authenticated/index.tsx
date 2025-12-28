@@ -124,7 +124,7 @@ function PullRequestList() {
             disabled={repositories.length === 0}
             className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Sync PRs
+            Onboard Repo
           </button>
         </div>
       </div>

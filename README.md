@@ -53,9 +53,9 @@ If you run into issues, see the [pre-reqs](#pre-requisites) and [troubleshooting
 The app listens for GitHub pull request activity via a signed webhook endpoint.
 
 1. **Generate a webhook secret** and set `GITHUB_WEBHOOK_SECRET` in your `.env` file.
-2. **Create a repository webhook** in GitHub that targets `https://your-app-domain/api/github-webhook` (use `http://localhost:5173/api/github-webhook` when tunneling in development).
-3. **Subscribe to these events:** `Pull requests`, `Pull request reviews`, `Pull request review comments`, and `Issue comments`.
-4. **Validate delivery health** from the dashboard – the Pull Requests list now surfaces pending, processed, failed, and ignored event counts plus the latest failure details.
+2. **Set `GITHUB_WEBHOOK_TARGET_URL`** to the public HTTPS URL GitHub should call (ex: `https://your-app-domain/api/github-webhook`). When developing locally, tunnel `http://localhost:5173/api/github-webhook` through a tool like `ngrok` and use the resulting HTTPS URL.
+3. **Sync repositories** from the dashboard and click **Onboard Repo** to register the webhook. The modal will trigger GitHub webhook creation with the URL/secret above and kick off the first pull request sync automatically.
+4. **Validate delivery health** from the dashboard – the Pull Requests list surfaces pending, processed, failed, and ignored event counts plus the latest failure details. The onboarding modal also displays the current webhook status and last error for each repo.
 
 Incoming deliveries are persisted with their raw payloads for replay. If any ingest attempt fails, the event is marked as `failed`; you can replay it later through the `events.replay` tRPC mutation or by triggering a GitHub redelivery.
 

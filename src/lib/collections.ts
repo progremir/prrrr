@@ -117,6 +117,19 @@ export const prFilesCollection = createCollection(
   })
 )
 
+export async function onboardRepository(input: {
+  repositoryId: number
+  state: `open` | `closed` | `all`
+}) {
+  const result = await trpc.github.onboardRepository.mutate(input)
+  await Promise.all([
+    repositoriesCollection.preload(),
+    pullRequestsCollection.preload(),
+    prFilesCollection.preload(),
+  ])
+  return result
+}
+
 export async function togglePrFileViewed(fileId: number, viewed: boolean) {
   let previousValue: boolean | undefined
 

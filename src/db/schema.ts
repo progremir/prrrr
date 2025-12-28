@@ -27,6 +27,10 @@ export const repositoriesTable = pgTable(`repositories`, {
   private: boolean().notNull().default(false),
   created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  webhook_id: bigint(`webhook_id`, { mode: 'number' }),
+  webhook_status: varchar({ length: 50 }).default(`unregistered`),
+  webhook_registered_at: timestamp({ withTimezone: true }),
+  webhook_error: text(`webhook_error`),
   user_id: text(`user_id`)
     .notNull()
     .references(() => users.id, { onDelete: `cascade` }),

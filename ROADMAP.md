@@ -67,7 +67,7 @@ A fully functional offline-first GitHub PR review app with core features complet
   - [x] Map events into Electric collections for real-time client updates
   - [x] Display sync health metrics in dashboard
   - [ ] Implement proactive alerting for sync failures
-  - [ ] Automate webhook registration during repository sync
+  - [x] Automate webhook registration during repository sync
   - [ ] Implement retry/backfill pipeline for missed events
   - [ ] Write integration tests covering event permutations
 
@@ -191,7 +191,7 @@ A fully functional offline-first GitHub PR review app with core features complet
 - [ ] No reply to comments yet (threads)
 - [ ] Can't resolve/unresolve conversations
 - [ ] No code suggestions feature
-- [ ] GitHub webhook registration is still manual
+- [x] ~~GitHub webhook registration is still manual~~
 
 ---
 

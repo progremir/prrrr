@@ -2,12 +2,15 @@ import { db } from "@/db/connection"
 import {
   commentsTable,
   prEventsTable,
+  prFilesTable,
   pullRequestsTable,
   repositoriesTable,
   reviewsTable,
 } from "@/db/schema"
+import { accounts } from "@/db/auth-schema"
 import { isCommentSide, isReviewState } from "@/lib/review-types"
 import { and, eq } from "drizzle-orm"
+import { createGitHubClient, fetchPullRequestFiles } from "@/lib/github"
 
 type TransactionClient = Parameters<
   Parameters<typeof db.transaction>[0]
@@ -74,6 +77,33 @@ function normalizeCommentSide(side: unknown): `LEFT` | `RIGHT` | null {
   }
   const upper = side.toUpperCase()
   return isCommentSide(upper) ? upper : null
+}
+
+async function getOctokitForRepository(
+  tx: TransactionClient,
+  repositoryGithubId: number
+) {
+  const [repositoryRow] = await tx
+    .select({ user_id: repositoriesTable.user_id })
+    .from(repositoriesTable)
+    .where(eq(repositoriesTable.github_id, repositoryGithubId))
+    .limit(1)
+
+  if (!repositoryRow) {
+    return null
+  }
+
+  const [account] = await tx
+    .select({ accessToken: accounts.accessToken })
+    .from(accounts)
+    .where(eq(accounts.userId, repositoryRow.user_id))
+    .limit(1)
+
+  if (!account?.accessToken) {
+    return null
+  }
+
+  return createGitHubClient(account.accessToken)
 }
 
 async function findPullRequestRow(
@@ -217,6 +247,70 @@ async function upsertPullRequest(
         merged_at: values.merged_at,
       },
     })
+
+  return true
+}
+
+async function fetchAndUpsertPrFiles(
+  tx: TransactionClient,
+  payload: GitHubWebhookPayload
+): Promise<boolean> {
+  const pullRequest = payload.pull_request as Record<string, unknown> | undefined
+  const repository = payload.repository as Record<string, unknown> | undefined
+
+  if (!pullRequest || !repository) {
+    return false
+  }
+
+  const repositoryGithubId = toNumber(repository.id)
+  if (repositoryGithubId === null) {
+    return false
+  }
+
+  const octokit = await getOctokitForRepository(tx, repositoryGithubId)
+  if (!octokit) {
+    console.warn(`[Webhook] No Octokit client available for repository ${repositoryGithubId}`)
+    return false
+  }
+
+  const pullRequestRow = await findPullRequestRow(tx, payload)
+  if (!pullRequestRow) {
+    return false
+  }
+
+  const owner = (repository.owner as Record<string, unknown> | undefined)?.login as string | undefined
+  const repoName = repository.name as string | undefined
+  const prNumber = toNumber(pullRequest.number)
+
+  if (!owner || !repoName || prNumber === null) {
+    return false
+  }
+
+  let files
+  try {
+    files = await fetchPullRequestFiles(octokit, owner, repoName, prNumber)
+  } catch (error) {
+    console.error(`[Webhook] Failed to fetch PR files for ${owner}/${repoName}#${prNumber}:`, error)
+    return false
+  }
+
+  // Delete existing files and insert fresh
+  await tx.delete(prFilesTable).where(eq(prFilesTable.pull_request_id, pullRequestRow.id))
+
+  for (const file of files) {
+    await tx.insert(prFilesTable).values({
+      filename: file.filename,
+      status: file.status,
+      additions: file.additions,
+      deletions: file.deletions,
+      changes: file.changes,
+      patch: file.patch ?? null,
+      previous_filename: file.previous_filename ?? null,
+      sha: file.sha ?? null,
+      viewed: false,
+      pull_request_id: pullRequestRow.id,
+    })
+  }
 
   return true
 }
@@ -369,6 +463,10 @@ async function processEvent(
   switch (eventName) {
     case `pull_request`:
       await upsertPullRequest(tx, payload)
+      // Fetch files for actions that change the PR content
+      if (action === `opened` || action === `synchronize` || action === `reopened`) {
+        await fetchAndUpsertPrFiles(tx, payload)
+      }
       return `processed`
     case `pull_request_review`:
       if (action === `submitted` || action === `edited`) {

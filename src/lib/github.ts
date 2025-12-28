@@ -109,3 +109,89 @@ export async function createReviewComment(
   })
   return data
 }
+
+export const PR_WEBHOOK_EVENTS = [
+  `pull_request`,
+  `pull_request_review`,
+  `pull_request_review_comment`,
+  `issue_comment`,
+] as const
+
+export type RepositoryWebhook = Awaited<
+  ReturnType<typeof listRepositoryWebhooks>
+>[number]
+
+export async function listRepositoryWebhooks(
+  octokit: Octokit,
+  owner: string,
+  repo: string
+) {
+  const { data } = await octokit.rest.repos.listWebhooks({
+    owner,
+    repo,
+    per_page: 100,
+  })
+  return data
+}
+
+type EnsureWebhookParams = {
+  octokit: Octokit
+  owner: string
+  repo: string
+  targetUrl: string
+  secret: string
+}
+
+export type EnsureWebhookResult = {
+  id: number
+  action: `created` | `updated` | `unchanged`
+}
+
+export async function ensureRepositoryWebhook({
+  octokit,
+  owner,
+  repo,
+  targetUrl,
+  secret,
+}: EnsureWebhookParams): Promise<EnsureWebhookResult> {
+  const webhooks = await listRepositoryWebhooks(octokit, owner, repo)
+  const existing = webhooks.find((hook) => hook.config?.url === targetUrl)
+
+  const config = {
+    url: targetUrl,
+    content_type: `json`,
+    insecure_ssl: `0`,
+    secret,
+  }
+
+  if (existing) {
+    const eventsChanged =
+      PR_WEBHOOK_EVENTS.length !== existing.events?.length ||
+      PR_WEBHOOK_EVENTS.some((event) => !existing.events?.includes(event))
+    const needsUpdate = !existing.active || eventsChanged
+
+    if (needsUpdate) {
+      await octokit.rest.repos.updateWebhook({
+        owner,
+        repo,
+        hook_id: existing.id,
+        active: true,
+        events: [...PR_WEBHOOK_EVENTS],
+        config,
+      })
+      return { id: existing.id, action: `updated` }
+    }
+
+    return { id: existing.id, action: `unchanged` }
+  }
+
+  const { data: created } = await octokit.rest.repos.createWebhook({
+    owner,
+    repo,
+    active: true,
+    events: [...PR_WEBHOOK_EVENTS],
+    config,
+  })
+
+  return { id: created.id, action: `created` }
+}

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { syncRepositoryPullRequests } from "@/lib/collections"
+import { onboardRepository } from "@/lib/collections"
 import type { Repository } from "@/db/schema"
 
 type SyncPRsModalProps = {
@@ -14,20 +14,29 @@ export function SyncPRsModal({ isOpen, onClose, onSuccess, repositories }: SyncP
   const [state, setState] = useState<`open` | `closed` | `all`>(`open`)
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const selectedRepo = repositories.find((repo) => repo.id === selectedRepoId)
 
-  const handleSync = async () => {
+  const formatWebhookStatus = (status?: string | null) => {
+    if (!status) return `Unregistered`
+    const pretty = status.replace(/_/g, ` `)
+    return pretty.charAt(0).toUpperCase() + pretty.slice(1)
+  }
+
+  const handleOnboard = async () => {
     if (!selectedRepoId) return
 
     setIsSyncing(true)
     setError(null)
 
     try {
-      const result = await syncRepositoryPullRequests({
+      const result = await onboardRepository({
         repositoryId: selectedRepoId,
         state,
       })
       onSuccess()
-      alert(`Synced ${result.count} pull requests!`)
+      alert(
+        `Webhook ${result.webhook.action} (id ${result.webhook.id}) registered and synced ${result.sync.count} pull requests!`
+      )
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to sync pull requests`)
@@ -41,7 +50,7 @@ export function SyncPRsModal({ isOpen, onClose, onSuccess, repositories }: SyncP
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h2 className="text-xl font-bold mb-4">Sync Pull Requests</h2>
+        <h2 className="text-xl font-bold mb-4">Onboard Repository</h2>
         
         {repositories.length === 0 ? (
           <p className="text-gray-600 mb-6">
@@ -67,9 +76,28 @@ export function SyncPRsModal({ isOpen, onClose, onSuccess, repositories }: SyncP
               </select>
             </div>
 
+            {selectedRepo && (
+              <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                <p className="font-medium text-gray-900">
+                  Webhook status: {formatWebhookStatus(selectedRepo.webhook_status)}
+                </p>
+                {selectedRepo.webhook_registered_at && (
+                  <p className="mt-1 text-gray-600">
+                    Registered at{" "}
+                    {new Date(selectedRepo.webhook_registered_at).toLocaleString()}
+                  </p>
+                )}
+                {selectedRepo.webhook_error && (
+                  <p className="mt-1 text-red-600">
+                    Last error: {selectedRepo.webhook_error}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                PR State
+                Initial PR State
               </label>
               <select
                 value={state}
@@ -99,11 +127,11 @@ export function SyncPRsModal({ isOpen, onClose, onSuccess, repositories }: SyncP
             Cancel
           </button>
           <button
-            onClick={handleSync}
+            onClick={handleOnboard}
             disabled={isSyncing || !selectedRepoId}
             className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
           >
-            {isSyncing ? `Syncing...` : `Sync PRs`}
+            {isSyncing ? `Onboarding...` : `Register webhook & sync`}
           </button>
         </div>
       </div>
